@@ -43,8 +43,8 @@ resource "aws_s3_bucket_public_access_block" "public_access" {
 # Create DynamoDB take to use for locking
 resource "aws_dynamodb_table" "terraform_locks" {
     name            = "terraform-up-and-running-locks"
-    billing_mode    = "PAY-PER_REQUEST"
-    hash-key        = "LockID"
+    billing_mode    = "PAY_PER_REQUEST"
+    hash_key        = "LockID"
 
     attribute {
         name = "LockID"
@@ -52,3 +52,22 @@ resource "aws_dynamodb_table" "terraform_locks" {
     }
 }
 
+# Shows Terraform pulling the latest state from the S3 bucket then pushing the latest state
+output "s3_bucket_arn" {
+    value       = "aws_s3_bucket.terraform_state.arn"
+    description = "The name of the DynamoDB table"
+}
+
+output "dynamodb_table_name" {
+    value       = aws_dynamodb_table.terraform_locks.name
+    description = "The name of the DynamoDB table"
+}
+
+# State stored in S3 will not be able to read variables. State values need to be hard coded. Alternatively, I'm going to use a partial configuration.
+# Settings (bucket, region, etc.) will be passed from a file via -backend-config arguments to 'terraform init'
+# Sample command: 'terraform init -backend-config=backend.hcl'
+terraform {
+    backend "s3" {
+        key = "example/terraform.tfstate"
+    }
+}
