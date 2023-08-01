@@ -7,9 +7,9 @@ resource "aws_s3_bucket" "terraform_state" {
     bucket = "terraform-up-and-running-state-falon"
 
     # Prevent accidental deletion of this S3 bucket
-    lifecycle {
-        prevent_destroy = true
-    }
+    # lifecycle {
+    #     prevent_destroy = true
+    # }
 }
 
 # Enable versioning so you can see the full revision history of your state files
@@ -52,22 +52,34 @@ resource "aws_dynamodb_table" "terraform_locks" {
     }
 }
 
-# Shows Terraform pulling the latest state from the S3 bucket then pushing the latest state
-output "s3_bucket_arn" {
-    value       = "aws_s3_bucket.terraform_state.arn"
-    description = "The name of the DynamoDB table"
-}
-
-output "dynamodb_table_name" {
-    value       = aws_dynamodb_table.terraform_locks.name
-    description = "The name of the DynamoDB table"
-}
-
 # State stored in S3 will not be able to read variables. State values need to be hard coded. Alternatively, I'm going to use a partial configuration.
 # Settings (bucket, region, etc.) will be passed from a file via -backend-config arguments to 'terraform init'
 # Sample command: 'terraform init -backend-config=backend.hcl'
+# terraform {
+#     backend "s3" {
+#         key = "example/terraform.tfstate"
+#     }
+# }
+
+# Deploy an EC2 instance to a Terraform Workspace
+# Benefit of Terraform Workspace: allows you to work across multiple "environments"
+
+# Establishes the DEFAULT Workspace. Use 'terraform workspace new name-example' to create a new workspace in the auto-created
+# folder env:/
+resource "aws_instance" "example" {
+    ami             = "ami-0fb653ca2d3203ac1"
+    # Set the DEFAULT Terraform Workspace to use a medium EC2 instance, and all subsequent Workspaces to MICRO
+    # instance_type   = "t2.micro" # set all instances to use MICRO EC2 instance
+    instance_type = terraform.workspace == "default" ? "t2.medium" : "t2.micro" 
+}
+ 
 terraform {
     backend "s3" {
-        key = "example/terraform.tfstate"
+        bucket          = "terraform-up-and-running-state-falon"
+        key             = "workspaces-example/terraform.tfstate"
+        region          = "us-east-2"
+
+        dynamodb_table  = "terraform-up-and-running-locks"
+        encrypt         = true
     }
 }
